@@ -50,8 +50,7 @@ jobs:
           echo 'APPIMAGE_TAG=nightly' >> $GITHUB_ENV
       - name: appimage
         run: ./scripts/genappimage.sh ${APPIMAGE_TAG}
-      - name: tar.gz
-        run: cpack --config build/CPackConfig.cmake -G TGZ
+      - run: cpack --config build/CPackConfig.cmake
       - uses: actions/upload-artifact@v3
         with:
           name: appimage
