@@ -36,7 +36,7 @@ jobs:
           apt-get install -y fuse libfuse2 # For linuxdeploy.
           # Workaround for https://github.com/actions/checkout/issues/766.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           repository: 'neovim/neovim'
       - run: ./.github/scripts/install_deps.sh --container
