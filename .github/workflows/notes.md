@@ -4,29 +4,7 @@ ${NVIM_VERSION}
 
 ## Install
 
-### Windows
-
-#### Zip
-
-1. Download **nvim-win64.zip**
-2. Extract the zip
-3. Run `nvim.exe` on your CLI of choice
-
-#### MSI
-
-1. Download **nvim-win64.msi**
-2. Run the MSI
-3. Run `nvim.exe` on your CLI of choice
-
-### macOS
-
-1. Download **nvim-macos.tar.gz**
-2. Run `xattr -c ./nvim-macos.tar.gz` (to avoid "unknown developer" warning)
-3. Extract: `tar xzvf nvim-macos.tar.gz`
-4. Run `./nvim-macos/bin/nvim`
-
 ### Linux (x64)
-
 #### AppImage
 1. Download **nvim.appimage**
 2. Run `chmod u+x nvim.appimage && ./nvim.appimage`
@@ -41,3 +19,9 @@ ${NVIM_VERSION}
 1. Download **nvim-linux64.tar.gz**
 2. Extract: `tar xzvf nvim-linux64.tar.gz`
 3. Run `./nvim-linux64/bin/nvim`
+
+#### Debian Package
+
+1. Download **nvim-linux64.deb**
+2. Install the package using `sudo apt install ./nvim-linux64.deb`
+3. Run `nvim`

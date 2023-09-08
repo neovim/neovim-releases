@@ -63,6 +63,7 @@ jobs:
           name: nvim-linux64
           path: |
             build/nvim-linux64.tar.gz
+            build/nvim-linux64.deb
           retention-days: 1
       - name: Export version
         id: build

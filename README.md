@@ -8,3 +8,4 @@ Daily releases of neovim not provided by the neovim repository.
 - Linux (built with glibc 2.27)
     - Appimage
     - tar.gz
+    - .deb
