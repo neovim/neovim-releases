@@ -72,52 +72,8 @@ jobs:
           ./build/bin/nvim --version | head -n 3 >> $GITHUB_OUTPUT
           printf 'END\n' >> $GITHUB_OUTPUT
 
-  macOS:
-    runs-on: macos-11
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: 'neovim/neovim'
-      - name: Install dependencies
-        run: ./.github/scripts/install_deps.sh
-      - if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
-        run: printf 'NVIM_BUILD_TYPE=Release\n' >> $GITHUB_ENV
-      - if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
-        run: printf 'NVIM_BUILD_TYPE=RelWithDebInfo\n' >> $GITHUB_ENV
-      - name: Build universal binary
-        run: ./.github/scripts/build_universal_macos.sh
-      - uses: actions/upload-artifact@v3
-        with:
-          name: nvim-macos
-          path: build/nvim-macos.tar.gz
-          retention-days: 1
-
-  windows:
-    runs-on: windows-2019
-    name: windows (MSVC_64)
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: 'neovim/neovim'
-      - run: .github/scripts/env.ps1
-      - name: Build deps
-        run: |
-          cmake -S cmake.deps -B .deps -G Ninja -DCMAKE_BUILD_TYPE='RelWithDebInfo'
-          cmake --build .deps
-      - name: build package
-        run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE='RelWithDebInfo'
-          cmake --build build --target package
-      - uses: actions/upload-artifact@v3
-        with:
-          name: nvim-win64
-          path: |
-            build/nvim-win64.msi
-            build/nvim-win64.zip
-          retention-days: 1
-
   publish:
-    needs: [linux, macOS, windows]
+    needs: [linux]
     runs-on: ubuntu-latest
     env:
       GH_REPO: ${{ github.repository }}
@@ -160,7 +116,7 @@ jobs:
           DEBUG: api
         run: |
           envsubst < "$GITHUB_WORKSPACE/.github/workflows/notes.md" > "$RUNNER_TEMP/notes.md"
-          gh release create $TAG_NAME $PRERELEASE --notes-file "$RUNNER_TEMP/notes.md" --title "$SUBJECT" --target $GITHUB_SHA nvim-macos/* nvim-linux64/* appimage/* nvim-win64/*
+          gh release create $TAG_NAME $PRERELEASE --notes-file "$RUNNER_TEMP/notes.md" --title "$SUBJECT" --target $GITHUB_SHA nvim-linux64/* appimage/*
           if [ "$TAG_NAME" != "nightly" ]; then
-            gh release create stable $PRERELEASE --notes-file "$RUNNER_TEMP/notes.md" --title "$SUBJECT" --target $GITHUB_SHA nvim-macos/* nvim-linux64/* appimage/* nvim-win64/*
+            gh release create stable $PRERELEASE --notes-file "$RUNNER_TEMP/notes.md" --title "$SUBJECT" --target $GITHUB_SHA nvim-linux64/* appimage/*
           fi
