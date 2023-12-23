@@ -1,5 +1,7 @@
 # Neovim releases
 
+[![Release](https://github.com/neovim/neovim-releases/actions/workflows/release.yml/badge.svg)](https://github.com/neovim/neovim-releases/actions/workflows/release.yml)
+
 Daily releases of neovim not provided by the neovim repository. These are
 provided on a best-effort basis and not officially supported.
 
