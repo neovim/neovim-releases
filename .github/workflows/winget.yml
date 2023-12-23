@@ -1,0 +1,40 @@
+name: winget
+on:
+  schedule:
+    - cron: '5 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  winget-nightly:
+    runs-on: windows-latest
+    steps:
+      - name: Get nightly version
+        id: get-version
+        run: |
+          Invoke-WebRequest https://github.com/neovim/neovim/releases/download/nightly/nvim-win64.msi -OutFile setup.msi
+          Install-Module -Name 'Carbon.Windows.Installer' -Force
+          $VERSION = (Get-CMsi (Resolve-Path .\setup.msi).Path).ProductVersion
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+      - name: Publish nightly
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: Neovim.Neovim.Nightly
+          version: ${{ steps.get-version.outputs.version }}
+          release-tag: nightly
+          token: ${{ secrets.WINGET_TOKEN }}
+
+  winget-stable:
+    runs-on: windows-latest
+    steps:
+      - id: get-version
+        run: |
+          Invoke-WebRequest https://github.com/neovim/neovim/releases/download/stable/nvim-win64.msi -OutFile setup.msi
+          Install-Module -Name 'Carbon.Windows.Installer' -Force
+          $VERSION = (Get-CMsi (Resolve-Path .\setup.msi).Path).ProductVersion
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+      - name: Publish stable
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: Neovim.Neovim
+          release-tag: ${{ steps.get-version.outputs.version }}
+          token: ${{ secrets.WINGET_TOKEN }}
