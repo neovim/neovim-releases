@@ -1,4 +1,4 @@
-# Neovim releases
+# Unsupported Nvim releases
 
 [![Release](https://github.com/neovim/neovim-releases/actions/workflows/release.yml/badge.svg)](https://github.com/neovim/neovim-releases/actions/workflows/release.yml)
 
