@@ -14,7 +14,7 @@ on:
 
 env:
   BIN_DIR: ${{ github.workspace }}/bin
-  MINIMUM_CMAKE_VERSION: '3.13'
+  MINIMUM_CMAKE_VERSION: '3.28'
 
 # Build on the oldest supported images, so we have broader compatibility
 # Build with gcc-10 to prevent triggering #14150 (default is still gcc-9 on 20.04)
@@ -56,8 +56,8 @@ jobs:
       # cmake releases didn't work as described.
       - name: Install cmake
         run: |
-         apt-get install -y cmake # Install cmake only for cpack, the cmake version itself is too old
-          curl --retry 5 --silent --show-error --fail -o /tmp/cmake-installer.sh "https://cmake.org/files/v${MINIMUM_CMAKE_VERSION}/cmake-${MINIMUM_CMAKE_VERSION}.0-Linux-x86_64.sh"
+          apt-get install -y cmake # Install cmake only for cpack, the cmake version itself is too old
+          curl --retry 5 --silent --show-error --fail -o /tmp/cmake-installer.sh "https://cmake.org/files/v${MINIMUM_CMAKE_VERSION}/cmake-${MINIMUM_CMAKE_VERSION}.0-linux-x86_64.sh"
           mkdir -p "$BIN_DIR" /opt/cmake-custom
           chmod a+x /tmp/cmake-installer.sh
           /tmp/cmake-installer.sh --prefix=/opt/cmake-custom --skip-license
@@ -70,11 +70,11 @@ jobs:
 
       - if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
         run: |
-          echo 'NVIM_BUILD_TYPE=Release' >> $GITHUB_ENV
+          echo 'CMAKE_BUILD_TYPE=Release' >> $GITHUB_ENV
           echo 'APPIMAGE_TAG=latest' >> $GITHUB_ENV
       - if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
         run: |
-          echo 'NVIM_BUILD_TYPE=RelWithDebInfo' >> $GITHUB_ENV
+          echo 'CMAKE_BUILD_TYPE=RelWithDebInfo' >> $GITHUB_ENV
           echo 'APPIMAGE_TAG=nightly' >> $GITHUB_ENV
       - name: appimage
         run: ./scripts/genappimage.sh ${APPIMAGE_TAG}
