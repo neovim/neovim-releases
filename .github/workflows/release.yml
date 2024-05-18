@@ -40,7 +40,14 @@ jobs:
           apt-get install -y fuse libfuse2 # For linuxdeploy.
           # Workaround for https://github.com/actions/checkout/issues/766.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - uses: actions/checkout@v3
+      - if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly'
+        uses: actions/checkout@v3
+        with:
+          repository: 'neovim/neovim'
+          ref: ${{ github.event.inputs.tag_name }}
+          fetch-depth: 0
+      - if: github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
+        uses: actions/checkout@v3
         with:
           repository: 'neovim/neovim'
           fetch-depth: 0
