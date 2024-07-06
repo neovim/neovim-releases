@@ -6,7 +6,7 @@ This repo provides best-effort, [unsupported builds](https://github.com/neovim/n
 (as opposed to the [supported builds](https://github.com/neovim/neovim/releases)) of Nvim for some legacy
 systems or other quirky scenarios:
 
-- Linux (built with glibc 2.27, unlike the [supported builds](https://github.com/neovim/neovim/releases)
+- Linux (built with glibc 2.17, unlike the [supported builds](https://github.com/neovim/neovim/releases)
   which use a newer glibc)
     - Appimage
     - tar.gz
