@@ -15,6 +15,7 @@ on:
 env:
   ARCH: x86_64
   ZIG_VERSION: 0.13.0
+  GLIBC_VERSION: 2.17
   BIN_DIR: ${{ github.workspace }}/bin
 
 # Build on the oldest supported images, so we have broader compatibility
