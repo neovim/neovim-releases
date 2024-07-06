@@ -48,7 +48,9 @@ jobs:
           fetch-depth: 0
 
       - name: Add "$BIN_DIR" to path
-        run: echo "$BIN_DIR" >> $GITHUB_PATH
+        run: |
+          mkdir -p "$BIN_DIR"
+          echo "$BIN_DIR" >> $GITHUB_PATH
 
       - name: Install Zig
         run: |
