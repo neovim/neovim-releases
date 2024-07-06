@@ -27,11 +27,11 @@ jobs:
     steps:
       - name: Install deps from apt
         run: |
-          apt-get update
-          apt-get install -y git
-          apt-get install -y fuse libfuse2 # For linuxdeploy.
-          apt-get install -y build-essential curl gettext ninja-build unzip cmake
-          apt-get install -y xz-utils # To extract zig
+          sudo apt-get update
+          sudo apt-get install -y git
+          sudo apt-get install -y fuse libfuse2 # For linuxdeploy.
+          sudo apt-get install -y build-essential curl gettext ninja-build unzip cmake
+          sudo apt-get install -y xz-utils # To extract zig
           # Workaround for https://github.com/actions/checkout/issues/766.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
