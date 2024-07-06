@@ -13,79 +13,78 @@ on:
       - v[0-9]+.[0-9]+.[0-9]+
 
 env:
+  ZIG_VERSION: 0.13.0
+  GLIBC_VERSION: 2.17
   BIN_DIR: ${{ github.workspace }}/bin
-  MINIMUM_CMAKE_VERSION: '3.28'
 
-# Build on the oldest supported images, so we have broader compatibility
-# Build with gcc-10 to prevent triggering #14150 (default is still gcc-9 on 20.04)
+# Build with zig cc so we can target glibc 2.17, so we have broader compatibility
 jobs:
   linux:
-    runs-on: ubuntu-20.04
-    env:
-      CC: gcc-10
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.build.outputs.version }}
-    container:
-      image: ubuntu:18.04
-      options: --privileged # Privileged mode is needed to load fuse module.
     steps:
-      - name: Prepare container
+      - name: Install deps from apt
         run: |
-          apt-get update
-          apt-get install -y software-properties-common
-          add-apt-repository -y ppa:ubuntu-toolchain-r/test # For gcc-10.
-          add-apt-repository -y ppa:git-core/ppa # For git>=2.18.
-          apt-get update
-          apt-get install -y git gcc-10
-          apt-get install -y fuse libfuse2 # For linuxdeploy.
+          sudo apt-get update
+          sudo apt-get install -y fuse libfuse2 # For linuxdeploy.
+          sudo apt-get install -y build-essential curl gettext ninja-build unzip cmake
+          sudo apt-get install -y xz-utils # To extract zig
           # Workaround for https://github.com/actions/checkout/issues/766.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly'
         uses: actions/checkout@v3
         with:
           repository: 'neovim/neovim'
           ref: ${{ github.event.inputs.tag_name }}
           fetch-depth: 0
+
       - if: github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
         uses: actions/checkout@v3
         with:
           repository: 'neovim/neovim'
           fetch-depth: 0
-      - run: |
-         apt-get update
-         apt-get install -y build-essential curl gettext ninja-build unzip
+
+      # zig cc with -02 implicitly adds -DNDEBUG so remove this from the generator flags
+      # Not needed for 0.10.1+ : https://github.com/neovim/neovim/pull/29599
+      - name: Patch Neovim
+        run: sed -i '/APPEND gen_cflags -O2/d' src/nvim/CMakeLists.txt || true
 
       - name: Add "$BIN_DIR" to path
-        run: echo "$BIN_DIR" >> $GITHUB_PATH
-
-      # TODO(dundargoc): this is very hacky. We only need to install cmake version
-      # that is at least the minimum cmake version, but for some reason the
-      # cmake releases didn't work as described.
-      - name: Install cmake
         run: |
-          apt-get install -y cmake # Install cmake only for cpack, the cmake version itself is too old
-          curl --retry 5 --silent --show-error --fail -o /tmp/cmake-installer.sh "https://cmake.org/files/v${MINIMUM_CMAKE_VERSION}/cmake-${MINIMUM_CMAKE_VERSION}.0-linux-x86_64.sh"
-          mkdir -p "$BIN_DIR" /opt/cmake-custom
-          chmod a+x /tmp/cmake-installer.sh
-          /tmp/cmake-installer.sh --prefix=/opt/cmake-custom --skip-license
-          ln -sfn /opt/cmake-custom/bin/cmake "$BIN_DIR/cmake"
-          cmake_version="$(cmake --version | head -1)"
-          echo "$cmake_version" | grep -qF "cmake version $MINIMUM_CMAKE_VERSION.0" || {
-            echo "Unexpected CMake version: $cmake_version"
-            exit 1
-          }
+          mkdir -p "$BIN_DIR"
+          echo "$BIN_DIR" >> $GITHUB_PATH
+
+      - name: Install Zig
+        run: |
+          curl -O https://ziglang.org/builds/zig-linux-$(arch)-$ZIG_VERSION.tar.xz
+          tar -xf zig-linux-$(arch)-$ZIG_VERSION.tar.xz
+          rm -rf zig-linux-$(arch)-$ZIG_VERSION.tar.xz
+          ln -s $(pwd)/zig-linux-$(arch)-$ZIG_VERSION/zig $BIN_DIR/zig
+
+          # Include -lunwind so luajit can be linked
+          # Include -g0 to strip debug info by default.
+          #   Note: Cmake should override this for debug builds by appending -g
+          echo 'exec zig cc -target $(arch)-linux-gnu.${GLIBC_VERSION} -lunwind -g0 "$@"' > $BIN_DIR/zigcc
+          chmod +x $BIN_DIR/zigcc
 
       - if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
         run: |
           echo 'CMAKE_BUILD_TYPE=Release' >> $GITHUB_ENV
           echo 'APPIMAGE_TAG=latest' >> $GITHUB_ENV
+
       - if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
         run: |
           echo 'CMAKE_BUILD_TYPE=RelWithDebInfo' >> $GITHUB_ENV
           echo 'APPIMAGE_TAG=nightly' >> $GITHUB_ENV
+
       - name: appimage
+        env:
+          CC: zigcc
         run: ./scripts/genappimage.sh ${APPIMAGE_TAG}
       - run: cpack --config build/CPackConfig.cmake
+
       - uses: actions/upload-artifact@v3
         with:
           name: appimage
@@ -93,6 +92,7 @@ jobs:
             build/bin/nvim.appimage
             build/bin/nvim.appimage.zsync
           retention-days: 1
+
       - uses: actions/upload-artifact@v3
         with:
           name: nvim-linux64
@@ -100,6 +100,7 @@ jobs:
             build/nvim-linux64.tar.gz
             build/nvim-linux64.deb
           retention-days: 1
+
       - name: Export version
         id: build
         run: |
@@ -127,31 +128,44 @@ jobs:
 
       - if: github.event_name == 'workflow_dispatch'
         run: echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+
       - if: github.event_name == 'schedule'
         run: echo 'TAG_NAME=nightly' >> $GITHUB_ENV
+
       - if: github.event_name == 'push'
         run: |
           TAG_NAME=${{ github.ref }}
           echo "TAG_NAME=${TAG_NAME#refs/tags/}" >> $GITHUB_ENV
-      - if: env.TAG_NAME == 'nightly'
-        run: |
-          (echo 'SUBJECT=Nvim development (prerelease) build';
-           echo 'PRERELEASE=--prerelease') >> $GITHUB_ENV
-          gh release delete nightly --yes || true
-          git push origin :nightly || true
-      - if: env.TAG_NAME != 'nightly'
-        run: |
-          (echo 'SUBJECT=Nvim release build';
-           echo 'PRERELEASE=') >> $GITHUB_ENV
-          gh release delete stable --yes || true
-          git push origin :stable || true
+
       - name: Publish release
         env:
           NVIM_VERSION: ${{ needs.linux.outputs.version }}
           DEBUG: api
         run: |
-          envsubst < "$GITHUB_WORKSPACE/.github/workflows/notes.md" > "$RUNNER_TEMP/notes.md"
-          if [ "$TAG_NAME" != "nightly" ]; then
-            gh release create stable $PRERELEASE --notes-file "$RUNNER_TEMP/notes.md" --title "$SUBJECT" --target $GITHUB_SHA nvim-linux64/* appimage/*
+          if [ "$TAG_NAME" == "nightly" ]; then
+            SUBJECT='Nvim development (prerelease) build'
+            PRERELEASE='--prerelease'
+          else
+            SUBJECT='Nvim release build'
+            PRERELEASE=
           fi
-          gh release create $TAG_NAME $PRERELEASE --notes-file "$RUNNER_TEMP/notes.md" --title "$SUBJECT" --target $GITHUB_SHA nvim-linux64/* appimage/*
+          envsubst < "$GITHUB_WORKSPACE/.github/workflows/notes.md" > "$RUNNER_TEMP/notes.md"
+
+          if [ "$TAG_NAME" == "nightly" ]; then
+            git push origin :nightly || true
+          else
+            gh release delete stable --yes || true
+            git push origin :stable || true
+            gh release create stable \
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              --title "$SUBJECT" \
+              --target $GITHUB_SHA \
+              nvim-linux64/* appimage/*
+          fi
+
+          gh release delete $TAG_NAME --yes || true
+          gh release create $TAG_NAME $PRERELEASE \
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              --title "$SUBJECT" \
+              --target $GITHUB_SHA \
+              nvim-linux64/* appimage/*
