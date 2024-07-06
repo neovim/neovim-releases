@@ -22,19 +22,13 @@ env:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    env:
-      CC: gcc-10
     outputs:
       version: ${{ steps.build.outputs.version }}
     steps:
       - name: Install deps from apt
         run: |
           apt-get update
-          apt-get install -y software-properties-common
-          add-apt-repository -y ppa:ubuntu-toolchain-r/test # For gcc-10.
-          add-apt-repository -y ppa:git-core/ppa # For git>=2.18.
-          apt-get update
-          apt-get install -y git gcc-10
+          apt-get install -y git
           apt-get install -y fuse libfuse2 # For linuxdeploy.
           apt-get install -y build-essential curl gettext ninja-build unzip cmake
           apt-get install -y xz-utils # To extract zig
