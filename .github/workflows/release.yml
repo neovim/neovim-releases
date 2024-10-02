@@ -58,7 +58,7 @@ jobs:
 
       - name: Install Zig
         run: |
-          curl -O https://ziglang.org/builds/zig-linux-$(arch)-$ZIG_VERSION.tar.xz
+          curl -O https://ziglang.org/download/$ZIG_VERSION/zig-linux-$(arch)-$ZIG_VERSION.tar.xz
           tar -xf zig-linux-$(arch)-$ZIG_VERSION.tar.xz
           rm -rf zig-linux-$(arch)-$ZIG_VERSION.tar.xz
           ln -s $(pwd)/zig-linux-$(arch)-$ZIG_VERSION/zig $BIN_DIR/zig
