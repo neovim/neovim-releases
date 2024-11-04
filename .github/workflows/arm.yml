@@ -1,0 +1,28 @@
+name: arm
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ASAN_OPTIONS: detect_leaks=1:check_initialization_order=1:log_path=${{ github.workspace }}/build/log/asan:intercept_tls_get_addr=0
+  BIN_DIR: ${{ github.workspace }}/bin
+  BUILD_DIR: ${{ github.workspace }}/build
+  INSTALL_PREFIX: ${{ github.workspace }}/nvim-install
+  LOG_DIR: ${{ github.workspace }}/build/log
+  NVIM_LOG_FILE: ${{ github.workspace }}/build/.nvimlog
+  TSAN_OPTIONS: log_path=${{ github.workspace }}/build/log/tsan
+  VALGRIND_LOG: ${{ github.workspace }}/build/log/valgrind-%p.log
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker buildx create --use
+      - run: docker buildx build --platform linux/arm64 --build-arg="TAG=${{ github.ref }}" --output build/bin/nvim.appimage -f .github/workflows/Dockerfile .
+      - run: ls
