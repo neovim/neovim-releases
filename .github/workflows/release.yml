@@ -34,14 +34,14 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'neovim/neovim'
           ref: ${{ github.event.inputs.tag_name }}
           fetch-depth: 0
 
       - if: github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'neovim/neovim'
           fetch-depth: 0
