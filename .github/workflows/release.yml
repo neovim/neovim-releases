@@ -20,7 +20,7 @@ env:
 # Build with zig cc so we can target glibc 2.17, so we have broader compatibility
 jobs:
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.build.outputs.version }}
     steps:
