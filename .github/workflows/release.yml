@@ -1,4 +1,4 @@
-name: Release
+name: release
 on:
   schedule:
     - cron: '5 5 * * *'
@@ -20,19 +20,12 @@ env:
 # Build with zig cc so we can target glibc 2.17, so we have broader compatibility
 jobs:
   linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.build.outputs.version }}
+    env:
+      LDAI_NO_APPSTREAM: 1 # skip checking (broken) AppStream metadata for issues
     steps:
-      - name: Install deps from apt
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fuse libfuse2 # For linuxdeploy.
-          sudo apt-get install -y build-essential curl gettext ninja-build unzip cmake
-          sudo apt-get install -y xz-utils # To extract zig
-          # Workaround for https://github.com/actions/checkout/issues/766.
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
       - if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly'
         uses: actions/checkout@v4
         with:
@@ -46,10 +39,9 @@ jobs:
           repository: 'neovim/neovim'
           fetch-depth: 0
 
-      # zig cc with -02 implicitly adds -DNDEBUG so remove this from the generator flags
-      # Not needed for 0.10.1+ : https://github.com/neovim/neovim/pull/29599
-      - name: Patch Neovim
-        run: sed -i '/APPEND gen_cflags -O2/d' src/nvim/CMakeLists.txt || true
+      - uses: ./.github/actions/setup
+
+      - run: sudo apt-get install -y fuse libfuse2 # For linuxdeploy.
 
       - name: Add "$BIN_DIR" to path
         run: |
