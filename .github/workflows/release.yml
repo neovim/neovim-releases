@@ -77,7 +77,7 @@ jobs:
         run: ./scripts/genappimage.sh ${APPIMAGE_TAG}
       - run: cpack --config build/CPackConfig.cmake
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: appimage
           path: |
@@ -85,7 +85,7 @@ jobs:
             build/bin/nvim-linux-x86_64.appimage.zsync
           retention-days: 1
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: nvim-linux64
           path: |
