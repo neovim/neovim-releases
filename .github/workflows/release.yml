@@ -20,7 +20,17 @@ env:
 # Build with zig cc so we can target glibc 2.17, so we have broader compatibility
 jobs:
   linux:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ ubuntu-22.04, ubuntu-22.04-arm ]
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+
+    runs-on: ${{ matrix.runner }}
     outputs:
       version: ${{ steps.build.outputs.version }}
     env:
@@ -79,18 +89,18 @@ jobs:
 
       - uses: actions/upload-artifact@v5
         with:
-          name: appimage
+          name: nvim-appimage-${{ matrix.arch }}
           path: |
-            build/bin/nvim-linux-x86_64.appimage
-            build/bin/nvim-linux-x86_64.appimage.zsync
+            build/bin/nvim-linux-${{ matrix.arch }}.appimage
+            build/bin/nvim-linux-${{ matrix.arch }}.appimage.zsync
           retention-days: 1
 
       - uses: actions/upload-artifact@v5
         with:
-          name: nvim-linux64
+          name: nvim-linux-${{ matrix.arch }}
           path: |
-            build/nvim-linux-x86_64.tar.gz
-            build/nvim-linux-x86_64.deb
+            build/nvim-linux-${{ matrix.arch }}.tar.gz
+            build/nvim-linux-${{ matrix.arch }}.deb
           retention-days: 1
 
       - name: Export version
@@ -152,7 +162,7 @@ jobs:
               --notes-file "$RUNNER_TEMP/notes.md" \
               --title "$SUBJECT" \
               --target $GITHUB_SHA \
-              nvim-linux64/* appimage/*
+              nvim-linux-x86_64/* nvim-linux-arm64/* nvim-appimage-x86_64/* nvim-appimage-arm64/*
           fi
 
           gh release delete $TAG_NAME --yes || true
@@ -160,4 +170,4 @@ jobs:
               --notes-file "$RUNNER_TEMP/notes.md" \
               --title "$SUBJECT" \
               --target $GITHUB_SHA \
-              nvim-linux64/* appimage/*
+              nvim-linux-x86_64/* nvim-linux-arm64/* nvim-appimage-x86_64/* nvim-appimage-arm64/*
