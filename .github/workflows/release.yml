@@ -27,14 +27,14 @@ jobs:
       LDAI_NO_APPSTREAM: 1 # skip checking (broken) AppStream metadata for issues
     steps:
       - if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: 'neovim/neovim'
           ref: ${{ github.event.inputs.tag_name }}
           fetch-depth: 0
 
       - if: github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: 'neovim/neovim'
           fetch-depth: 0
@@ -111,7 +111,7 @@ jobs:
     steps:
       # Must perform checkout first, since it deletes the target directory
       # before running, and would therefore delete the downloaded artifacts
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/download-artifact@v6
 
