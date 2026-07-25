@@ -24,15 +24,12 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ ubuntu-22.04, ubuntu-22.04-arm ]
+        variant: [ puc, luajit ]
         include:
-          - runner: ubuntu-22.04
-            arch: x86_64
-          - runner: ubuntu-22.04-arm
-            arch: arm64
+          - { runner: ubuntu-22.04,    arch: x86_64 }
+          - { runner: ubuntu-22.04-arm, arch: arm64 }
 
     runs-on: ${{ matrix.runner }}
-    outputs:
-      version: ${{ steps.build.outputs.version }}
     env:
       LDAI_NO_APPSTREAM: 1 # skip checking (broken) AppStream metadata for issues
     steps:
@@ -81,34 +78,36 @@ jobs:
           echo 'CMAKE_BUILD_TYPE=RelWithDebInfo' >> $GITHUB_ENV
           echo 'APPIMAGE_TAG=nightly' >> $GITHUB_ENV
 
-      - name: appimage
-        env:
-          CC: zigcc
-        run: ./scripts/genappimage.sh ${APPIMAGE_TAG}
-      - run: cpack --config build/CPackConfig.cmake
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: nvim-appimage-${{ matrix.arch }}
-          path: |
-            build/bin/nvim-linux-${{ matrix.arch }}.appimage
-            build/bin/nvim-linux-${{ matrix.arch }}.appimage.zsync
-          retention-days: 1
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: nvim-linux-${{ matrix.arch }}
-          path: |
-            build/nvim-linux-${{ matrix.arch }}.tar.gz
-            build/nvim-linux-${{ matrix.arch }}.deb
-          retention-days: 1
-
-      - name: Export version
-        id: build
+      - name: Build neovim (${{ matrix.variant }})
+        env: { CC: zigcc }
         run: |
-          printf 'version<<END\n' >> $GITHUB_OUTPUT
-          ./build/bin/nvim --version | head -n 3 >> $GITHUB_OUTPUT
-          printf 'END\n' >> $GITHUB_OUTPUT
+          case "${{ matrix.variant }}" in
+            puc)
+              DEPS_CMAKE_FLAGS="-DUSE_BUNDLED_LUA=ON" \
+              CMAKE_EXTRA_FLAGS="-DPREFER_LUA=ON -DCMAKE_LIBRARY_PATH=/usr/lib/$(uname -m)-linux-gnu -DCPACK_PACKAGE_FILE_NAME=nvim-linux-${{ matrix.arch }}-puc" \
+              OUTPUT=nvim-linux-${{ matrix.arch }}-puc.appimage \
+                ./scripts/genappimage.sh ${APPIMAGE_TAG}
+              ;;
+            luajit)
+              ./scripts/genappimage.sh ${APPIMAGE_TAG}
+              ;;
+          esac
+
+      - name: Package tar.gz + deb
+        run: cpack --config build/CPackConfig.cmake
+
+      - name: Flatten appimage
+        run: mv "build/bin/nvim-linux-${{ matrix.arch }}${{ matrix.variant == 'puc' && '-puc' || '' }}.appimage"* build/ || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nvim-linux-${{ matrix.arch }}${{ matrix.variant == 'puc' && '-puc' || '' }}
+          path: |
+            build/nvim-linux-${{ matrix.arch }}${{ matrix.variant == 'puc' && '-puc' || '' }}.tar.gz
+            build/nvim-linux-${{ matrix.arch }}${{ matrix.variant == 'puc' && '-puc' || '' }}.deb
+            build/nvim-linux-${{ matrix.arch }}${{ matrix.variant == 'puc' && '-puc' || '' }}.appimage
+            build/nvim-linux-${{ matrix.arch }}${{ matrix.variant == 'puc' && '-puc' || '' }}.appimage.zsync
+          retention-days: 1
 
   publish:
     needs: [linux]
@@ -124,6 +123,21 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
+
+      - name: Get version from build
+        run: |
+          mkdir -p version
+          tar -xzf nvim-linux-x86_64/nvim-linux-x86_64.tar.gz -C version
+          {
+            echo "NVIM_VERSION=$(./version/nvim-linux-x86_64/bin/nvim --version | head -n 1 | awk '{print $2}')"
+            echo "LUAJIT_VERSION=$(./version/nvim-linux-x86_64/bin/nvim --version | sed -n '3p' | awk '{print $NF}')"
+          } >> "$GITHUB_ENV"
+          if [ -f nvim-linux-x86_64-puc/nvim-linux-x86_64-puc.tar.gz ]; then
+            tar -xzf nvim-linux-x86_64-puc/nvim-linux-x86_64-puc.tar.gz -C version
+            echo "LUA_VERSION=$(./version/nvim-linux-x86_64-puc/bin/nvim --version | sed -n '3p' | awk '{print $NF}')" >> "$GITHUB_ENV"
+          else
+            echo 'LUA_VERSION=5.1' >> "$GITHUB_ENV"
+          fi
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y gettext-base
@@ -141,7 +155,6 @@ jobs:
 
       - name: Publish release
         env:
-          NVIM_VERSION: ${{ needs.linux.outputs.version }}
           DEBUG: api
         run: |
           if [ "$TAG_NAME" == "nightly" ]; then
@@ -151,7 +164,7 @@ jobs:
             SUBJECT='Nvim release build'
             PRERELEASE=
           fi
-          envsubst < "$GITHUB_WORKSPACE/.github/workflows/notes.md" > "$RUNNER_TEMP/notes.md"
+          envsubst '${NVIM_VERSION} ${LUAJIT_VERSION} ${LUA_VERSION}' < "$GITHUB_WORKSPACE/.github/workflows/notes.md" > "$RUNNER_TEMP/notes.md"
 
           if [ "$TAG_NAME" == "nightly" ]; then
             git push origin :nightly || true
@@ -162,7 +175,7 @@ jobs:
               --notes-file "$RUNNER_TEMP/notes.md" \
               --title "$SUBJECT" \
               --target $GITHUB_SHA \
-              nvim-linux-x86_64/* nvim-linux-arm64/* nvim-appimage-x86_64/* nvim-appimage-arm64/*
+              nvim-linux-x86_64/* nvim-linux-arm64/* nvim-linux-x86_64-puc/* nvim-linux-arm64-puc/*
           fi
 
           gh release delete $TAG_NAME --yes || true
@@ -170,4 +183,4 @@ jobs:
               --notes-file "$RUNNER_TEMP/notes.md" \
               --title "$SUBJECT" \
               --target $GITHUB_SHA \
-              nvim-linux-x86_64/* nvim-linux-arm64/* nvim-appimage-x86_64/* nvim-appimage-arm64/*
+              nvim-linux-x86_64/* nvim-linux-arm64/* nvim-linux-x86_64-puc/* nvim-linux-arm64-puc/*
