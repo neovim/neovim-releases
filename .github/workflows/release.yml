@@ -33,17 +33,20 @@ jobs:
     env:
       LDAI_NO_APPSTREAM: 1 # skip checking (broken) AppStream metadata for issues
     steps:
-      - if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly'
+      # Release build: the pushed tag, or the version typed into workflow_dispatch
+      - if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
         uses: actions/checkout@v7
         with:
           repository: 'neovim/neovim'
-          ref: ${{ github.event.inputs.tag_name }}
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag_name }}
           fetch-depth: 0
 
-      - if: github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
+      # Nightly build: master
+      - if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
         uses: actions/checkout@v7
         with:
           repository: 'neovim/neovim'
+          ref: master
           fetch-depth: 0
 
       - uses: ./.github/actions/setup
@@ -142,16 +145,15 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y gettext-base
 
-      - if: github.event_name == 'workflow_dispatch'
-        run: echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
-
-      - if: github.event_name == 'schedule'
-        run: echo 'TAG_NAME=nightly' >> $GITHUB_ENV
-
-      - if: github.event_name == 'push'
+      - if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
+        env:
+          TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag_name }}
         run: |
-          TAG_NAME=${{ github.ref }}
-          echo "TAG_NAME=${TAG_NAME#refs/tags/}" >> $GITHUB_ENV
+          [ -n "$TAG" ] || { echo '::error::tag_name must not be empty'; exit 1; }
+          echo "TAG_NAME=$TAG" >> "$GITHUB_ENV"
+
+      - if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
+        run: echo 'TAG_NAME=nightly' >> "$GITHUB_ENV"
 
       - name: Publish release
         env:
@@ -161,7 +163,7 @@ jobs:
             SUBJECT='Nvim development (prerelease) build'
             PRERELEASE='--prerelease'
           else
-            SUBJECT='Nvim release build'
+            SUBJECT="Nvim ${TAG_NAME#v}"
             PRERELEASE=
           fi
           envsubst '${NVIM_VERSION} ${LUAJIT_VERSION} ${LUA_VERSION}' < "$GITHUB_WORKSPACE/.github/workflows/notes.md" > "$RUNNER_TEMP/notes.md"
@@ -173,7 +175,7 @@ jobs:
             git push origin :stable || true
             gh release create stable \
               --notes-file "$RUNNER_TEMP/notes.md" \
-              --title "$SUBJECT" \
+              --title "Nvim release build" \
               --target $GITHUB_SHA \
               nvim-linux-x86_64/* nvim-linux-arm64/* nvim-linux-x86_64-puc/* nvim-linux-arm64-puc/*
           fi
