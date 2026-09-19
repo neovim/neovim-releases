@@ -147,8 +147,10 @@ jobs:
 
       - if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != 'nightly')
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag_name }}
-        run: echo "TAG_NAME=${INPUT_TAG:-$GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag_name }}
+        run: |
+          [ -n "$TAG" ] || { echo '::error::tag_name must not be empty'; exit 1; }
+          echo "TAG_NAME=$TAG" >> "$GITHUB_ENV"
 
       - if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name == 'nightly')
         run: echo 'TAG_NAME=nightly' >> "$GITHUB_ENV"
